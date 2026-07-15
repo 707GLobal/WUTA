@@ -39,6 +39,14 @@ def generate_launch_description():
     default_track = PathJoinSubstitution(
         [lidar_share, "tracks", "trackdrive.yaml"]
     )
+    vehicle_start_x = PythonExpression(
+        [
+            "'-15.0' if '", LaunchConfiguration("mission_mode"),
+            "' == 'skidpad' and '", LaunchConfiguration("start_x"),
+            "' == 'auto' else ('0.0' if '", LaunchConfiguration("start_x"),
+            "' == 'auto' else '", LaunchConfiguration("start_x"), "')",
+        ]
+    )
 
     # Stage 1: the source of truth.  vehicle_model depends at build/runtime on
     # autoware_msgs from WUTA-FSD and publishes /sim/ground_truth.
@@ -52,7 +60,7 @@ def generate_launch_description():
             "wheel_base": LaunchConfiguration("wheel_base"),
             "max_steer_angle": LaunchConfiguration("max_steer_angle"),
             "dt": LaunchConfiguration("vehicle_dt"),
-            "start_x": LaunchConfiguration("start_x"),
+            "start_x": vehicle_start_x,
             "start_y": LaunchConfiguration("start_y"),
             "start_yaw": LaunchConfiguration("start_yaw"),
         }.items(),
@@ -323,7 +331,14 @@ def generate_launch_description():
             DeclareLaunchArgument("wheel_base", default_value="1.53"),
             DeclareLaunchArgument("max_steer_angle", default_value="25.0"),
             DeclareLaunchArgument("vehicle_dt", default_value="0.02"),
-            DeclareLaunchArgument("start_x", default_value="0.0"),
+            DeclareLaunchArgument(
+                "start_x",
+                default_value="auto",
+                description=(
+                    "Initial vehicle X coordinate. 'auto' selects -15 m for "
+                    "skidpad (FSAC staging line) and 0 m for other missions."
+                ),
+            ),
             DeclareLaunchArgument("start_y", default_value="0.0"),
             DeclareLaunchArgument("start_yaw", default_value="0.0"),
             vehicle,

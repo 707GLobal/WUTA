@@ -136,7 +136,7 @@ KISS-ICP 的 `lidar_odom_frame=odom`、`base_frame=base_link`，且
 | cone_map_builder | `merge_distance`、`min_hit_count`、闭环阈值、`assign_colors`、`map_save_path`、`tf_lookup_timeout_sec`、`pending_detection_timeout_sec`、`max_pending_detections`、`use_latest_tf_fallback` | `config/cone_map_builder.yaml`；默认只使用检测采样时刻 TF，缺失时排队重试 |
 | boundary_detector_node | `lookahead_distance`、`desired_velocity` | `config/boundary_detector.yaml` |
 | path_generator_node | Trackdrive/Skidpad/Acceleration 速度、半径、点数、长度；Skidpad map 参考、出口和制动距离 | `config/path_generator.yaml` |
-| controller_node | 车辆几何、Pure Pursuit lookahead/连续进度窗口、`control_rate_hz`、Skidpad 完成位置/速度阈值 | `config/controller.yaml` |
+| controller_node | 车辆几何、Pure Pursuit lookahead/连续进度窗口、`skidpad_lookahead=3.0 m`、`control_rate_hz`、Skidpad 完成位置/速度阈值 | `config/controller.yaml`；仅 `MISSION_SKIDPAD` 使用固定前视，其它模式仍使用动态前视 |
 | mission_manager | `mission_mode`（string） | `mission_manager.cpp` |
 | localization_manager | 无显式声明参数 | 默认定位集成；通过固定话题与 MissionState 选源 |
 | ndt_localization / map_saver | 地图路径、NDT/体素参数、累积距离 | `config/ndt_localization.yaml` |
