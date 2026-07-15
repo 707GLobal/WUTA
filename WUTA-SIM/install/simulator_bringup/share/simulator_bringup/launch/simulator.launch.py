@@ -1,1 +1,0 @@
-/home/starry1n/WUTA/WUTA-SIM/build/simulator_bringup/launch/simulator.launch.py
