@@ -43,8 +43,10 @@ def generate_launch_description():
         [
             "'-15.0' if '", LaunchConfiguration("mission_mode"),
             "' == 'skidpad' and '", LaunchConfiguration("start_x"),
+            "' == 'auto' else ('-0.3' if '", LaunchConfiguration("mission_mode"),
+            "' == 'acceleration' and '", LaunchConfiguration("start_x"),
             "' == 'auto' else ('0.0' if '", LaunchConfiguration("start_x"),
-            "' == 'auto' else '", LaunchConfiguration("start_x"), "')",
+            "' == 'auto' else '", LaunchConfiguration("start_x"), "'))",
         ]
     )
 
@@ -107,8 +109,8 @@ def generate_launch_description():
         ),
     )
 
-    # The bridge always supplies simulator readiness and mission state.  Truth
-    # pose/TF output is an explicit fallback; normally EKF owns those outputs.
+    # The bridge supplies simulator readiness, start input and (optionally)
+    # truth pose/TF. MissionManager is the sole MissionState publisher.
     bridge = Node(
         package="simulator_bringup",
         executable="simulation_bridge",
@@ -116,13 +118,15 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                "publish_mission_state": ParameterValue(
+                "publish_start_command": ParameterValue(
                     LaunchConfiguration("auto_start"), value_type=bool
                 ),
-                "mission_mode": LaunchConfiguration("mission_mode"),
                 "publish_truth_localization": ParameterValue(
                     LaunchConfiguration("use_ground_truth_localization"),
                     value_type=bool,
+                ),
+                "manual_ready": ParameterValue(
+                    LaunchConfiguration("manual_ready"), value_type=bool
                 ),
             }
         ],
@@ -253,6 +257,16 @@ def generate_launch_description():
         output="screen",
         condition=launch_fsd,
     )
+    mission_manager = Node(
+        package="mission_manager",
+        executable="mission_manager_node",
+        name="mission_manager_node",
+        parameters=[
+            {"mission_mode": LaunchConfiguration("mission_mode")},
+        ],
+        output="screen",
+        condition=launch_fsd,
+    )
 
     return LaunchDescription(
         [
@@ -277,7 +291,16 @@ def generate_launch_description():
                 default_value="true",
                 choices=["true", "false"],
                 description=(
-                    "Publish EXPLORE state for closed-loop simulation."
+                    "Send /system/start_command for closed-loop simulation."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "manual_ready",
+                default_value="false",
+                choices=["true", "false"],
+                description=(
+                    "Wait for one RViz Publish Point click before bridge "
+                    "publishes lidar/localization ready."
                 ),
             ),
             DeclareLaunchArgument(
@@ -336,7 +359,7 @@ def generate_launch_description():
                 default_value="auto",
                 description=(
                     "Initial vehicle X coordinate. 'auto' selects -15 m for "
-                    "skidpad (FSAC staging line) and 0 m for other missions."
+                    "skidpad, -0.30 m for acceleration, and 0 m for trackdrive."
                 ),
             ),
             DeclareLaunchArgument("start_y", default_value="0.0"),
@@ -351,7 +374,7 @@ def generate_launch_description():
                 map_to_odom,
                 base_to_lidar,
             ),
-            _delayed(PythonExpression([delay, " * 2"]), localization, rviz),
+            _delayed(PythonExpression([delay, " * 2"]), localization, rviz, mission_manager),
             _delayed(PythonExpression([delay, " * 3"]), lidar_detection),
             _delayed(PythonExpression([delay, " * 4"]), cone_map_builder),
             _delayed(PythonExpression([delay, " * 5"]), boundary_detector),

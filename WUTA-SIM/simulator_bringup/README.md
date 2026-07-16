@@ -16,13 +16,26 @@ INS 将 ground truth 加噪后发布 `/cg410/odometry`，KISS-ICP 从 `/hesai/pa
 4. 随后默认启动 KISS-ICP、EKF 和 localization_manager，产生统一定位输出。
 5. 启用 `launch_fsd` 时，WUTA-FSD 按数据流顺序启动：
    `lidar_detection` -> `cone_map_builder` -> `boundary_detector` ->
-   `path_generator` -> `controller`.
+   `mission_manager` -> `path_generator` -> `controller`.
 
-`simulation_bridge` 默认提供就绪状态以及（`auto_start:=true` 时）`EXPLORE` 任务状态。收到控制器的
-`/system/mission_complete`（`std_msgs/msg/Bool=true`）后，它改为稳定发布既有的
-`MissionState.FINISH`，使 Skidpad 可完成任务状态闭环。
+`simulation_bridge` 默认提供就绪状态以及（`auto_start:=true` 时）
+`/system/start_command=true` 仿真出发输入。`mission_manager` 是唯一的
+`/system/mission_state` 发布者：就绪后进入 `READY`，收到开始输入进入 `EXPLORE`，再由
+控制器的 `/system/mission_complete`（`std_msgs/msg/Bool=true`）进入 `FINISH`。
 默认的 `/localization/pose` 与动态 `odom -> base_link` TF 由融合定位链发布；bridge 的真值
 pose/TF 仅在 `use_ground_truth_localization:=true` 时启用。
+
+RViz 默认显示 `/system/status_viz`：任务模式、`EXPLORE/FINISH` 状态、
+`/system/mission_complete` 对应的完成状态以及 `/sim/ground_truth` 的速度和位置。该话题只用于调试显示，
+不参与控制或定位。
+
+### RViz 手动就绪调试
+
+需要手动控制状态机就绪时，以 `manual_ready:=true` 启动。bridge 会在 RViz 点击前保持
+`/system/lidar_ready=false` 与 `/system/localization_ready=false`；选择 RViz 工具栏的
+**Publish Point** 后在地图任意位置点击一次，即锁存就绪。配合 `auto_start:=false` 可先停在
+`READY`，再从终端发布 `/system/start_command=true`；若保留 `auto_start:=true`，点击后会自动进入
+`EXPLORE`。
 
 ## Build
 
@@ -79,6 +92,9 @@ cd /path/to/WUTA
 
 # Skidpad 完整闭环并打开 RViz（起点自动为 -15 m）
 ./start_simulator.sh --rviz track_file:=skidpad mission_mode:=skidpad
+
+# Acceleration：-0.30 m 起步，75 m 计时，100 m 停止区
+./start_simulator.sh --rviz track_file:=acceleration mission_mode:=acceleration
 
 # 真值定位调试：不启动 INS、KISS-ICP 或 EKF
 ./start_simulator.sh --skip-build use_ground_truth_localization:=true
@@ -145,7 +161,8 @@ ros2 launch simulator_bringup simulator.launch.py \
 | 仅仿真传感器/RViz | `launch_fsd:=false use_ground_truth_localization:=true` | 不启动 FSD 感知、规划、控制；保留真值传感器与 TF |
 
 其他常用 launch 参数：`auto_start:=false` 停留在 `IDLE` 等待外部任务状态；`start_x:=auto`
-会在 Skidpad 自动选用 `-15 m`、其它赛项选用 `0 m`；可用 `wheel_base`、`max_steer_angle`
+会在 Skidpad 自动选用 `-15 m`、Acceleration 自动选用 YAML 规定的 `-0.30 m`、Trackdrive
+选用 `0 m`；可用 `wheel_base`、`max_steer_angle`
 和 `vehicle_dt` 覆盖车辆模型参数。
 
 ### 启动默认参数配置

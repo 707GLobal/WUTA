@@ -149,9 +149,10 @@ INS 将 ground truth 加噪后发布 `/cg410/odometry`，KISS-ICP 从 `/hesai/pa
 4. 随后默认启动 KISS-ICP、EKF 和 localization_manager，产生统一定位输出。
 5. 启用 `launch_fsd` 时，WUTA-FSD 按数据流顺序启动：
    `lidar_detection` -> `cone_map_builder` -> `boundary_detector` ->
-   `path_generator` -> `controller`.
+   `mission_manager` -> `path_generator` -> `controller`.
 
-`simulation_bridge` 默认提供就绪状态以及（`auto_start:=true` 时）`EXPLORE` 任务状态。
+`simulation_bridge` 默认提供就绪状态以及（`auto_start:=true` 时）`/system/start_command`。
+`mission_manager` 是 `/system/mission_state` 的唯一发布者，负责 READY、EXPLORE 与 FINISH 转换。
 默认的 `/localization/pose` 与动态 `odom -> base_link` TF 由融合定位链发布；bridge 的真值
 pose/TF 仅在 `use_ground_truth_localization:=true` 时启用。
 

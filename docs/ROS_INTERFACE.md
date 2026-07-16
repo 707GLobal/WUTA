@@ -26,10 +26,15 @@
 | `/planning/centerline` | `autoware_msgs/msg/Lane` | boundary_detector | path_generator | 收到地图时；depth 10 |
 | `/planning/centerline_viz` | `visualization_msgs/msg/MarkerArray` | boundary_detector | RViz | 有订阅者时；depth 10 |
 | `/planning/final_waypoints` | `autoware_msgs/msg/Lane` | path_generator | controller | 中心线或任务状态触发；depth 10 |
+| `/planning/final_waypoints_viz` | `visualization_msgs/msg/MarkerArray` | path_generator | RViz | 最终参考路径 `LINE_STRIP`；任务路径发布时；depth 10 |
+| `/planning/driven_trajectory_viz` | `visualization_msgs/msg/MarkerArray` | path_generator | RViz | `/localization/pose` 经仅可视化的一阶平滑和空间降采样后累积；每 3 个位置点更新；depth 10 |
 | `/control/command` | `autoware_msgs/msg/Command` | controller | vehicle_model | 控制定时器，默认 50 Hz；depth 10 |
-| `/system/mission_complete` | `std_msgs/msg/Bool` | controller | simulation_bridge | Skidpad 在固定 25 m 出口终点停车后一次发布 `true`；depth 10 |
+| `/system/mission_complete` | `std_msgs/msg/Bool` | controller | mission_manager | Skidpad 在固定 25 m 出口或 Acceleration 在终点线后 100 m 停止区末端停车后一次发布 `true`；mission_manager 据此进入 FINISH；depth 10 |
 | `/control/target_viz` | `visualization_msgs/msg/MarkerArray` | controller | RViz | 有订阅者时；depth 10 |
-| `/system/mission_state` | `wuta_msgs/msg/MissionState` | simulation_bridge（默认）或 mission_manager | 规划/控制/定位/NDT/map_saver | bridge 10 Hz；depth 10 |
+| `/system/mission_state` | `wuta_msgs/msg/MissionState` | mission_manager | 规划/控制/定位/NDT/map_saver、simulation_bridge | **唯一发布者**；10 Hz；depth 10 |
+| `/system/start_command` | `std_msgs/msg/Bool` | simulation_bridge（`auto_start=true`）或外部 | mission_manager | 仿真出发输入；`true` 使 READY 进入 EXPLORE；depth 10 |
+| `/clicked_point` | `geometry_msgs/msg/PointStamped` | RViz Publish Point | simulation_bridge | `manual_ready=true` 时，一次点击锁存人工就绪并使 bridge 发布 ready；depth 10 |
+| `/system/status_viz` | `visualization_msgs/msg/MarkerArray` | simulation_bridge | RViz | 10 Hz；订阅 MissionState 后显示任务模式、状态、完成标志、车辆真值速度与位置；depth 10 |
 | `/system/lidar_ready` | `std_msgs/msg/Bool` | simulation_bridge | mission_manager | 10 Hz；depth 10 |
 | `/system/localization_ready` | `std_msgs/msg/Bool` | localization_manager（默认）或 simulation_bridge（真值回退） | mission_manager | 随定位输出；depth 10 |
 | `/odometry/filtered` | `nav_msgs/msg/Odometry` | robot_localization `ekf_node` | localization_manager | 默认融合输出；50 Hz；`odom` frame |
@@ -131,13 +136,13 @@ KISS-ICP 的 `lidar_odom_frame=odom`、`base_frame=base_link`，且
 | --- | --- | --- |
 | vehicle_model | `wheel_base`、`max_steer_angle`、`dt`、`start_x/y/yaw`（double） | `vehicle_model.py` / launch |
 | lidar_simulator | topic/frame 名（string）、`publish_rate_hz`/FOV/范围/噪声（double）、点数（int）、开关（bool） | `config/lidar_simulator.yaml` |
-| simulation_bridge | `ground_truth_topic`、`mission_mode`、`map_frame`、`base_frame`（string）；`publish_mission_state`、`publish_truth_localization`（bool） | `simulation_bridge.py`；接收 `/system/mission_complete=true` 后发布 `FINISH` |
+| simulation_bridge | `ground_truth_topic`、`map_frame`、`base_frame`（string）；`publish_start_command`、`publish_truth_localization`、`manual_ready`（bool） | `simulation_bridge.py`；只提供仿真就绪、出发输入、真值定位调试和状态可视化，不发布 MissionState |
 | lidar_detection_node | `detector_type`、topic 名、地面/体素/聚类/几何阈值、`model_path` | `config/lidar_detection.yaml` |
 | cone_map_builder | `merge_distance`、`min_hit_count`、闭环阈值、`assign_colors`、`map_save_path`、`tf_lookup_timeout_sec`、`pending_detection_timeout_sec`、`max_pending_detections`、`use_latest_tf_fallback` | `config/cone_map_builder.yaml`；默认只使用检测采样时刻 TF，缺失时排队重试 |
 | boundary_detector_node | `lookahead_distance`、`desired_velocity` | `config/boundary_detector.yaml` |
-| path_generator_node | Trackdrive/Skidpad/Acceleration 速度、半径、点数、长度；Skidpad map 参考、出口和制动距离 | `config/path_generator.yaml` |
-| controller_node | 车辆几何、Pure Pursuit lookahead/连续进度窗口、`skidpad_lookahead=3.0 m`、`control_rate_hz`、Skidpad 完成位置/速度阈值 | `config/controller.yaml`；仅 `MISSION_SKIDPAD` 使用固定前视，其它模式仍使用动态前视 |
-| mission_manager | `mission_mode`（string） | `mission_manager.cpp` |
+| path_generator_node | Trackdrive/Skidpad/Acceleration 速度、半径、点数、长度；Skidpad map 参考、出口和制动距离；Acceleration 起点/计时线/100 m 停止区；`driven_trajectory_smoothing_alpha`、`driven_trajectory_min_distance` | `config/path_generator.yaml`；后两项仅影响 RViz 实际轨迹显示 |
+| controller_node | 车辆几何、Pure Pursuit lookahead/连续进度窗口、`skidpad_lookahead=3.0 m`、`control_rate_hz`、`max_steering_rate_deg_s`、Skidpad 完成位置/速度阈值 | `config/controller.yaml`；仅 `MISSION_SKIDPAD` 使用固定前视；转向输出按速率限制抑制定位噪声引起的抖动 |
+| mission_manager | `mission_mode`（string） | `mission_manager.cpp`；唯一发布 MissionState，接收就绪、出发、完成和急停输入 |
 | localization_manager | 无显式声明参数 | 默认定位集成；通过固定话题与 MissionState 选源 |
 | ndt_localization / map_saver | 地图路径、NDT/体素参数、累积距离 | `config/ndt_localization.yaml` |
 | kiss_icp_node | frame/TF、协方差、范围、体素、阈值、迭代参数 | `kiss_icp_wrapper/config/kiss_icp_hesai128.yaml` |

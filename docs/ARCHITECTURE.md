@@ -45,21 +45,24 @@ graph TD
   LS -->|/sim/lidar/visible_cones| RVIZ
   LD -->|/perception/lidar/cones| CMB
   CMB -->|/mapping/cone_map| BD
-  SB -->|/system/mission_state| BD
+  SB -->|/system/lidar_ready, /system/start_command| MM[mission_manager_node]
+  LM -->|/system/localization_ready| MM
+  MM -->|/system/mission_state| BD
   BD -->|/planning/centerline| PG[path_generator_node]
-  SB -->|/system/mission_state| PG
+  MM -->|/system/mission_state| PG
   PG -->|/planning/final_waypoints| CTRL[controller_node]
   CAN -->|/localization/velocity| CTRL
-  SB -->|/system/mission_state| CTRL
+  MM -->|/system/mission_state| CTRL
   CTRL -->|/control/command| VM
-  CTRL -->|/system/mission_complete| SB
+  CTRL -->|/system/mission_complete| MM
   TFSTATICMAP[static_transform_publisher] -->|map -> odom TF| RVIZ
   EKF -->|odom -> base_link TF| RVIZ
   TFSTATIC[static_transform_publisher] -->|base_link -> lidar TF| RVIZ
 ```
 
-`mission_manager`、`ndt_localization` 与 `map_saver` 均在源码中实现，但不由
-`simulator.launch.py` 默认启动。
+`mission_manager` 由 `simulator.launch.py` 在 `launch_fsd=true` 时启动，并且是唯一的
+`/system/mission_state` 发布者。`ndt_localization` 与 `map_saver` 仍只在源码中实现，未由
+默认 bringup 启动。
 
 ## 3. Node Architecture
 
@@ -69,13 +72,13 @@ graph TD
 | `can_simulator` | `can_simulator` | 是 | 从仿真里程计复制速度；`/sim/ground_truth` → `/localization/velocity` |
 | `ins_simulator` | `ins_simulator` submodule | 是 | 真值加噪的 CG-410 适配；`/sim/ground_truth` → `/cg410/odometry` |
 | `lidar_simulator` | `lidar_sim` | 是 | YAML 赛道/车辆位姿生成点云与真值 marker；`/sim/ground_truth` → `/hesai/pandar`、`/sim/lidar/*` |
-| `simulation_bridge` | `simulator_bringup` | 是 | 就绪/任务状态适配；仅真值回退时发布 pose/TF |
+| `simulation_bridge` | `simulator_bringup` | 是 | 就绪、仿真开始输入、真值调试 pose/TF 与状态可视化；不发布 MissionState |
 | `lidar_detection_node` | `lidar_detection` | 是（`launch_fsd`） | PCL/DL 检测；`/hesai/pandar` → `/perception/lidar/cones`、可视化 |
 | `cone_map_builder_node` | `cone_map_builder` | 是（`launch_fsd`） | TF 变换、去重/闭环；检测与 pose → `/mapping/cone_map` |
 | `boundary_detector_node` | `boundary_detector` | 是（`launch_fsd`） | Delaunay 中点中心线；地图、位姿、任务 → `/planning/centerline` |
 | `path_generator_node` | `path_generator` | 是（`launch_fsd`） | 赛项路径与速度；Skidpad 固定四圈+25 m 退出路径 → `/planning/final_waypoints` |
-| `controller_node` | `controller` | 是（`launch_fsd`） | 带单调路径进度的 Pure Pursuit 与限幅；Skidpad 停车后通知任务完成 |
-| `mission_manager_node` | `mission_manager` | 否 | IDLE/READY/EXPLORE/RACE 状态机；系统状态与地图 → `/system/mission_state` |
+| `controller_node` | `controller` | 是（`launch_fsd`） | 带单调路径进度的 Pure Pursuit 与限幅；Skidpad/Acceleration 停车后通知任务完成 |
+| `mission_manager_node` | `mission_manager` | 是（`launch_fsd`） | 唯一 MissionState 发布者；就绪、开始、完成、急停与地图 → `/system/mission_state` |
 | `localization_manager_node` | `localization_manager` | 是（`launch_localization`） | EKF/NDT 位姿源切换；状态/`/odometry/filtered`/`/ndt/pose` → `/localization/pose` |
 | `kiss_icp_node` | KISS-ICP ROS package | 是（`launch_localization`） | 点云 → `/kiss/odometry`；TF 由 EKF 单独发布 |
 | `ndt_localization_node` | `ndt_localization` | 否 | PCL NDT 匹配；点云、初始位姿、状态 → `/ndt/pose`、路径 |

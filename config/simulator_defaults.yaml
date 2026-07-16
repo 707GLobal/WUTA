@@ -7,15 +7,16 @@ build:
   build_only: false
 
 launch_arguments:
-  track_file: trackdrive
+  track_file:  trackdrive1
   mission_mode: trackdrive
   launch_fsd: true
   auto_start: true
+  manual_ready: false
   startup_delay: 0.5
   launch_ins: true
   launch_localization: true
   use_ground_truth_localization: false
-  launch_rviz: false
+  launch_rviz: true
   rviz_config: WUTA-SIM/simulator_bringup/rviz/wuta_simulator.rviz
   wheel_base: 1.53
   max_steer_angle: 25.0

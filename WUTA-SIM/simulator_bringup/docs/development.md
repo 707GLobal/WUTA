@@ -21,12 +21,34 @@ install/simulator_bringup/share/simulator_bringup/rviz/wuta_simulator.rviz
 | `Cone Map` | `/mapping/cone_map_viz` | `cone_map_builder` |
 | `Centerline` | `/planning/centerline_viz` | `boundary_detector_node` |
 | `Control Target` | `/control/target_viz` | `controller_node` |
+| `Final Waypoints` | `/planning/final_waypoints_viz` | `path_generator_node` |
+| `Driven Trajectory (Smoothed Localization)` | `/planning/driven_trajectory_viz` | `path_generator_node` |
+| `System Status (Mission and Ground Truth)` | `/system/status_viz` | `simulation_bridge` |
 
 `Loaded Track Cones (YAML Ground Truth)` 使用 `Reliable + Transient Local`，并显式
 启用 `track_cones` 与 `track_cone_info` 命名空间。RViz 的 Fixed Frame 必须为 `map`。
 
-注意：FSD Pipeline 下的四项可视化仅在相应算法节点启动且产生数据后才会显示；
+注意：FSD Pipeline 下的可视化仅在相应算法节点启动且产生数据后才会显示；
 它们为空不代表 simulator 真值地图有问题。
+
+`Driven Trajectory` 使用 `/localization/pose`，只在 marker 生成时做平滑/降采样；它反映定位
+估计，不等同于 `/sim/ground_truth`。`Final Waypoints` 显示 path_generator 的当前目标路径。
+状态 marker 显示 mission/state/complete、真值速度和位置。
+
+## MissionState 所有权与手动就绪
+
+`mission_manager_node` 是默认 FSD bringup 中唯一的 `/system/mission_state` 发布者。
+`simulation_bridge` 仅发布 `/system/lidar_ready`、真值回退定位、`/system/start_command` 和状态
+可视化；它订阅 MissionState，不再发布它。
+
+启用 RViz 手动就绪：
+
+```bash
+./start_simulator.sh manual_ready:=true auto_start:=false --rviz
+```
+
+在 RViz 工具栏选择 **Publish Point** 后点击地图，bridge 收到 `/clicked_point`，开始发布 ready，
+状态机进入 `READY`。再发布 `/system/start_command=true` 才进入 `EXPLORE`。
 
 ## README 自动启动脚本
 

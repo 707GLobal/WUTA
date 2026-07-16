@@ -1,7 +1,8 @@
 # FSAC 规则摘录
 
 本文档保存本仓库当前仿真实现所依据的 FSAC 规则摘录。来源为
-[`skidpad rule.txt`](<skidpad rule.txt>)；未在该源文件中出现的赛项规则不在本文档中推断或补写。
+[`skidpad rule.txt`](<skidpad rule.txt>) 与 [`accelerationrules.txt`](<accelerationrules.txt>)；
+未在这些源文件中出现的赛项规则不在本文档中推断或补写。
 
 ## 八字环绕（Skidpad）布局
 
@@ -31,3 +32,21 @@
 ## 计分
 
 规则源文件定义：成绩为左、右计时圈平均时间加平均处罚；成功完成且没有 DNF/DQ 至少获得完成分。完整评分公式及本届赛事的 `T_min`、`T_max` 应以赛事官方发布版本为准。
+
+## 直线加速（Acceleration）
+
+### 布局与流程
+
+- 起点到终点的直线距离为 75 m；赛道按路标锥桶内边缘计算宽度为 3 m，锥桶间距为 5 m。
+- 车辆最前部在起跑线后 0.30 m 处静止起步；仅在穿过计时起点线后开始计时，并在穿过 75 m 终点线后停止计时。
+- 穿过终点线后，车辆必须在标记出口车道的 100 m 内完全停车，并进入任务完成状态。
+
+### 当前仿真映射
+
+`WUTA-SIM/perception_simulation/tracks/acceleration.yaml` 使用 `+X` 由起点指向终点：
+
+- 起步参考点为 `(-0.30, 0, yaw=0)`，计时起点为 `x=0`，终点线为 `x=75`。
+- YAML 将停止区末端标为 `x=175`；`path_generator` 在 `x=0..75` 保持目标速度，在
+  `x=75..175` 按恒减速度剖面制动。
+- 控制器在停止区末端附近且速度低于完成阈值时发布 `/system/mission_complete=true`；
+  `mission_manager` 随后进入 `FINISH`。

@@ -18,6 +18,7 @@
   <exec_depend>rviz2</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>wuta_msgs</exec_depend>
 
   <exec_depend>can_simulator</exec_depend>
@@ -31,6 +32,7 @@
   <exec_depend>cone_map_builder</exec_depend>
   <exec_depend>controller</exec_depend>
   <exec_depend>lidar_detection</exec_depend>
+  <exec_depend>mission_manager</exec_depend>
   <exec_depend>path_generator</exec_depend>
 
   <test_depend>ament_flake8</test_depend>
